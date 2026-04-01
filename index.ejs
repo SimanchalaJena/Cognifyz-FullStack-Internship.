@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognifyz Expert Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary-grad: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
+        body { background: #f4f7f6; font-family: 'Segoe UI', sans-serif; }
+        .navbar { background: var(--primary-grad) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .card { border: none; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); }
+        .btn-primary { background: var(--primary-grad); border: none; border-radius: 8px; }
+        .strength-meter { height: 8px; border-radius: 10px; background: #e0e0e0; margin-top: 8px; overflow: hidden; }
+        .weak { background: #ff4757; width: 33%; }
+        .medium { background: #ffa502; width: 66%; }
+        .strong { background: #2ed573; width: 100%; }
+        .weather-badge { background: rgba(255,255,255,0.2); border-radius: 50px; padding: 5px 20px; }
+        .btn-delete { color: #ff4757; background: none; border: none; transition: 0.2s; }
+        .btn-delete:hover { color: #ff6b81; transform: scale(1.2); }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark mb-5 py-3">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span class="navbar-brand fw-bold fs-4"><i class="fas fa-terminal me-2"></i>Cognifyz Portal</span>
+            <div class="weather-badge text-white">
+                <i class="fas fa-temperature-high me-2"></i><%= weather %>°C <small class="ms-2">Cuttack</small>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="card p-4 mb-4">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-user-plus text-primary me-2"></i>Register</h5>
+                    <form action="/register" method="POST">
+                        <div class="mb-3"><input type="text" name="userName" class="form-control" placeholder="Full Name" required></div>
+                        <div class="mb-3"><input type="email" name="userEmail" class="form-control" placeholder="Email" required></div>
+                        <div class="mb-3">
+                            <input type="password" name="password" class="form-control" placeholder="Password" id="pwdInput" required>
+                            <div id="meter" class="strength-meter"></div>
+                            <small id="pwdText" class="text-muted">Security: Waiting...</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2">Submit Application</button>
+                    </form>
+                </div>
+                <div class="card p-4">
+                    <h5 class="fw-bold mb-3 text-success"><i class="fas fa-lock me-2"></i>Portal Login</h5>
+                    <form action="/login" method="POST">
+                        <input type="email" name="email" class="form-control mb-2" placeholder="Email" required>
+                        <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
+                        <button type="submit" class="btn btn-outline-success w-100">Login</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card p-4 h-100">
+                    <div class="d-flex justify-content-between mb-3 align-items-center">
+                        <h5 class="fw-bold mb-0">Registered Database</h5>
+                        <button id="refreshBtn" class="btn btn-sm btn-dark"><i class="fas fa-sync me-1"></i> Refresh API</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="table-light"><tr><th>Name</th><th>Email</th><th class="text-end">Action</th></tr></thead>
+                            <tbody>
+                                <% users.forEach(user => { %>
+                                    <tr>
+                                        <td><strong><%= user.name %></strong></td>
+                                        <td><span class="text-muted"><%= user.email %></span></td>
+                                        <td class="text-end">
+                                            <form action="/delete-user/<%= user._id %>" method="POST" style="display:inline;">
+                                                <button type="submit" class="btn-delete" onclick="return confirm('Delete this user?')">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="apiToast" class="toast align-items-center text-white bg-primary border-0" role="alert">
+            <div class="d-flex"><div class="toast-body" id="toastMsg"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Password Strength
+        const pwdInput = document.getElementById('pwdInput');
+        pwdInput.addEventListener('input', () => {
+            const val = pwdInput.value;
+            const meter = document.getElementById('meter');
+            const txt = document.getElementById('pwdText');
+            meter.className = "strength-meter";
+            if (val.length < 1) { txt.innerText = "Security: Waiting..."; }
+            else if (val.length < 6) { meter.classList.add('weak'); txt.innerText = "Too Short"; }
+            else if (val.match(/[0-9]/) && val.match(/[A-Z]/)) { meter.classList.add('strong'); txt.innerText = "Strong Password"; }
+            else { meter.classList.add('medium'); txt.innerText = "Medium Strength"; }
+        });
+
+        // Toast
+        const toast = new bootstrap.Toast(document.getElementById('apiToast'));
+        document.getElementById('refreshBtn').addEventListener('click', async () => {
+            const res = await fetch('/api/users');
+            const data = await res.json();
+            document.getElementById('toastMsg').innerText = `API: ${data.length} users retrieved.`;
+            toast.show();
+        });
+    </script>
+</body>
+</html>
